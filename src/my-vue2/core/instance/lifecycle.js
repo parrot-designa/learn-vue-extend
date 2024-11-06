@@ -68,9 +68,10 @@ export function lifecycleMixin(Vue){
         vm._vnode = vnode
         // 没有说明 是vm上没有_vnode 即为初次渲染
         if(!prevVnode){
-            vm.__patch__(vm.$el,vnode);
+            // 创建的节点赋值给 vm.$el
+            vm.$el = vm.__patch__(vm.$el,vnode);
         }else{
-            vm.__patch__(prevVnode,vnode);
+            vm.$el = vm.__patch__(prevVnode,vnode);
         }
         
     }

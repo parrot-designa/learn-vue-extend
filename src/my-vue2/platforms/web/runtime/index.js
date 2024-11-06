@@ -4,6 +4,12 @@ import { inBrowser, noop } from "@/my-vue2/core/util/index";
 import { query } from "@/my-vue2/platforms/web/util/index";
 import { mountComponent } from '@/my-vue2/core/instance/lifecycle'
 import { patch } from './patch';
+import { extend } from "@/my-vue2/shared/util";
+import platformDirectives from "./directives/index"
+import platformComponents from "./components/index"
+
+extend(Vue.options.directives, platformDirectives)
+extend(Vue.options.components, platformComponents)
 
 // 新增了Vue.prototype.$mount、
 Vue.prototype.$mount = function (

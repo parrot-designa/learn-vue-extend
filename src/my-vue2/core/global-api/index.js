@@ -1,5 +1,8 @@
 import config from "../config";
 import { initExtend } from "./extend";
+import { ASSET_TYPES } from "@/my-vue2/shared/constants";
+import builtInComponents from "../components/index";
+import { extend } from "../util";
 
 export function initGlobalAPI(Vue){
     const configDef = {};
@@ -16,8 +19,11 @@ export function initGlobalAPI(Vue){
     Object.defineProperty(Vue,'config',configDef);
 
     Vue.options = Object.create(null)
-
+    ASSET_TYPES.forEach(type => {
+      Vue.options[type + 's'] = Object.create(null)
+    });
     Vue.options._base = Vue; 
+    extend(Vue.options.components, builtInComponents)
 
     initExtend(Vue)
 }

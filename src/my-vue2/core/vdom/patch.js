@@ -1,4 +1,4 @@
-import { isArray } from '@/my-vue2/shared/util';
+import { isArray, isUndef } from '@/my-vue2/shared/util';
 import { isDef } from "../util"
 import VNode from "./vnode"
 
@@ -31,12 +31,16 @@ export function createPatchFunction({ nodeOps,modules }){
         return new VNode({tag:nodeOps.tagName(elm).toLowerCase(), data:{}, children:[],text:undefined,elm});
     }
 
+    // 待完善
     function insert(parent,elm,referenceElm){
-        if(referenceElm){
-            nodeOps.insertBefore(parent,elm,referenceElm)
-        }else{
-            nodeOps.appendChild(parent,elm)
-        }
+        // 如果是组件挂载 没有 parent
+        if (isDef(parent)) {
+            if(referenceElm){
+                nodeOps.insertBefore(parent,elm,referenceElm)
+            }else{
+                nodeOps.appendChild(parent,elm)
+            }
+        } 
     }
 
     function createChildren(children,parentElm,referenceElm){
@@ -74,23 +78,30 @@ export function createPatchFunction({ nodeOps,modules }){
     // oldVnode代表上一次渲染的 vnode
     // vnode代表这次渲染的 vnode
     return function patch(oldVnode,vnode){
-        // 判断是否是一个真实节点
-        const isRealElement = isDef(oldVnode.nodeType)
-        if (isRealElement) {
-            oldVnode = emptyNodeAt(oldVnode)
-        }
-        // 将要替换旧的节点
-        const oldElm = oldVnode.elm;
-        const parentElm = nodeOps.parentNode(oldElm);
+        // 没有oldVnode 说明是组件挂载 
+        if(isUndef(oldVnode)){
+            createElm(
+                vnode
+            )
+        }else{
+            // 判断是否是一个真实节点
+            const isRealElement = isDef(oldVnode.nodeType)
+            if (isRealElement) {
+                oldVnode = emptyNodeAt(oldVnode)
+            }
+            // 将要替换旧的节点
+            const oldElm = oldVnode.elm;
+            const parentElm = nodeOps.parentNode(oldElm);
 
-        createElm(
-            vnode,
-            parentElm,
-            nodeOps.nextSibling(oldElm)
-        );
-
-        if (isDef(parentElm)) { 
-            removeNode(oldElm)
-        }
+            createElm(
+                vnode,
+                parentElm,
+                nodeOps.nextSibling(oldElm)
+            );
+            if (isDef(parentElm)) { 
+                removeNode(oldElm)
+            }
+        } 
+        return vnode.elm;
     }
 }
