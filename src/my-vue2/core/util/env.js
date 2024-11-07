@@ -10,3 +10,9 @@ export const UA = inBrowser && window.navigator.userAgent.toLowerCase()
 
 // 判断是否是 IE
 export const isIE = UA && /msie|trident/.test(UA)
+
+export const hasSymbol =
+  typeof Symbol !== 'undefined' &&
+  isNative(Symbol) &&
+  typeof Reflect !== 'undefined' &&
+  isNative(Reflect.ownKeys)

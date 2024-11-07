@@ -64,14 +64,44 @@ export function initMixin(Vue){
 
 // 获取构造函数上的 options选项
 export function resolveConstructorOptions(Ctor){
-    // Ctor是构造函数
+    // Ctor是构造函数 获取构造函数上的 options
     let options = Ctor.options;
     // super代表父类构造器
     // 如果有 super选项 说明这个函数是使用 Vue.extend 生成的 VueComponent
     if(Ctor.super){
-        // 再次获取父类构造器上的 options这里的父类通常指的是 Vue
+        // 表示父类构造函数上的 options
         const superOptions = resolveConstructorOptions(Ctor.super);
-        // 
-        const cachedSuperOptions = Ctor.superOptions
+        // 表示extend生成子类构造函数时的父类构造函数上的 options
+        const cachedSuperOptions = Ctor.superOptions;
+        // 如果父类构造函数变化了 如执行了 Vue.mixin
+        if (superOptions !== cachedSuperOptions) {
+            // 给子类构造函数上设置最新的父类构造函数options
+            Ctor.superOptions = superOptions;
+            // 获取子类构造函数上的更改项
+            const modifiedOptions = resolveModifiedOptions(Ctor)
+            // 如果有更改项
+            if(modifiedOptions){
+                // 将更改项添加到子类构造函数的extendOptions属性上
+                extend(Ctor.extendOptions, modifiedOptions);
+            }
+            // 将最新的父类构造函数选项和子类构造函数选项合并
+            options = Ctor.options = mergeOptions(superOptions, Ctor.extendOptions)
+            if (options.name) {
+                options.components[options.name] = Ctor
+            }
+        }
     }
+}
+
+function resolveModifiedOptions(Ctor){
+    let modified
+    const latest = Ctor.options
+    const sealed = Ctor.sealedOptions
+    for (const key in latest) {
+      if (latest[key] !== sealed[key]) {
+        if (!modified) modified = {}
+        modified[key] = latest[key]
+      }
+    }
+    return modified
 }
