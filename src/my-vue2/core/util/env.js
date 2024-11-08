@@ -16,3 +16,5 @@ export const hasSymbol =
   isNative(Symbol) &&
   typeof Reflect !== 'undefined' &&
   isNative(Reflect.ownKeys)
+
+export const nativeWatch = {}.watch

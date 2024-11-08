@@ -4,7 +4,7 @@
 
 Vue是一个基于原型设计的前端框架。
 
-在Vue被引入（`import Vue from 'vue'`）时，会通过多个函数给Vue原型上添加上一系列的方法。
+在Vue被引入（`import Vue from 'vue'`）时，会通过多个函数在Vue原型上添加上一系列的方法。
 
 ```js
 // 该函数在 Vue被引入时执行
@@ -35,15 +35,19 @@ const vm = new Vue();
 >
 > 2. `实例对象的 __proto__ 属性`：每个实例对象都有一个 `__proto__` 属性，指向构造函数的原型对象。
 
-所以我们可以得出结论：`Vue构造函数的显式原型（Vue.prototype）和基于它创建的实例的隐式原型（vm.__proto__）指向的是同一块内存空间`。
-
-![测试](./1.png)
-
-当 Vue实例访问某个属性时，如果在自身属性中找不到，则会沿着__proto__属性指向的原型对象进行查找，所以通过 vm 可以访问到定义在 Vue.prototype 的属性和方法。
+所以我们可以得出结论：`Vue构造函数的显式原型（Vue.prototype）和基于它创建的实例的隐式原型（vm.__proto__）指向的是同一块内存空间`。 
 
 而Vue构造函数同时也是 Function 的实例。
 
 所以：`Vue.__proto__.constructor === Function`。
+
+![测试](image/1.png)
+
+当 Vue实例访问某个属性时，如果在自身属性中找不到，则会沿着__proto__属性指向的原型对象进行查找。
+
+所以通过 vm 可以访问到定义在 Vue.prototype 的属性和方法。
+
+通用这种方式，可以很方便的扩展方法，并不用显示的在 vm 上设置方法，做到了相对隔离。
 
 # 二、Vue.extend利用原型链继承生成“子类“构造函数
 
@@ -72,9 +76,9 @@ Vue.extend = function(){
 ``` 
 我们简单的分析一下这几行代码。
 
-> 声明了Super变量和 Sub变量分别指向`Vue构造函数`，和 `VueComponent构造函数`。
+> 声明了Super变量和 Sub变量分别指向`Vue构造函数`和 `VueComponent构造函数`。
 
-![测试](./2.png)
+![测试](image/2.png)
 
 如上图所示，基于`Vue原型对象`创建了一块新的内存地址，并将`VueComponent构造函数`的原型对象指向这块地址。
  
@@ -100,11 +104,10 @@ Vue.extend = function(){
 
 在render阶段，也就是在生成组件的vnode的时候会通过 extend 方法创建`VueComponent构造函数`。
 
-并赋值到 vnode 中的 componentOptions属性中。
-
-> 这里的`_base`实际上就是 Vue。
+并赋值到 vnode 中的 componentOptions属性中。 
 
 ```js
+//  创建组件的 vnode 的方法
 export function createComponent(Ctor,context){
     // _base在引入时被设置为 Vue
     // 这里的options后面我们会详细说明
@@ -116,7 +119,8 @@ export function createComponent(Ctor,context){
     )
 }
 ```
-
+> 这里的`_base`实际上就是 Vue。
+>
 > 这里的 context是vm实例，`vm.$options`是在实例化构造函数时通过 `mergeOptions`函数生成的。
 
 然后在update阶段（渲染页面），会基于Ctor生成对应的实例，执行相应的初始化、渲染方法等。
@@ -164,7 +168,7 @@ Notification();
 
 在 element 中的 Notification组件 就使用了 extend 进行扩展。
 
-## 2.1.3 使用VueComponent继续扩展它的“子类”构造函数
+### 2.1.3 使用VueComponent继续扩展它的“子类”构造函数
 
 需要关注的是在Vue.extend中，将Vue.extend方法同时赋值给了 VueComponent。
 
@@ -228,12 +232,13 @@ function addNode(){
 
 addNode();
 ```
-![alt text](image-1.png)
+![alt text](image/3.png)
+
 上述代码中，VueComponentConstructor 是通过 Vue.extend 创建的一个基础组件构造函数。
 
 在这个基础构造函数中传入了模板选项，我们之后创建的构造函数就可以复用 template选项，避免编写重复的模板。
 
-![alt text](3.png)
+![alt text](image/4.png)
  
 我们这里只是简单的举了一个例子，通过这个例子我们了解到了extend的重要意义。真实的复用结构肯定更为复杂。 
 
@@ -348,7 +353,7 @@ extend(Vue.options.components, platformComponents)
 3. `components`：代表需要注册的组件选项，默认提供了 KeepAlive、Transition、TransitionGroup的内置组件。
 4. `filter`：代表需要注册的过滤器，默认没有提供默认值。
 
-![alt text](4.png)
+![alt text](image/5.png)
 
 # 四、子类构造函数的options
 
@@ -356,7 +361,7 @@ extend(Vue.options.components, platformComponents)
 
 而 VueComponent构造函数作为 Vue构造函数的子类，是不是也继承了它的默认选项呢？
 
-我们继续打开 Vue.extend 的源码一探究竟。
+我们再次打开 Vue.extend 的源码一探究竟。
 
 ```js
 Vue.extend = function(extendOptions){
@@ -372,7 +377,7 @@ Vue.extend = function(extendOptions){
 }
 ```
 
-虽然我们不知道 mergeOptions的具体逻辑，但是我们很容易看出来，VueComponent构造函数上的 options属性合并了“父类“构造函数上的options属性以及extend方法传入的 options选项。
+虽然我们不知道 mergeOptions的具体逻辑，但是我们很容易看出来，VueComponent构造函数上的 options属性合并了“父类“构造函数上的options属性以及extend方法传入的选项。
 
 > 在 VueComponent构造函数上新增了一个_Ctor属性，可以避免每次重新创建子类，提高性能，后面我们会专门说这里，这里不进行展开。
 
@@ -389,7 +394,7 @@ const VueComponentConstructor = Vue.extend({
 
 > 这里需要注意的是，继承只是拷贝了一个副本，并不会影响 Vue构造函数的属性。
 
-![alt text](5.png)
+![alt text](image/6.png)
 
 我们知道，VueComponent构造函数本身是具有再次扩展的能力的。 
 
@@ -404,7 +409,7 @@ const VueComponentChild1Constructor = VueComponentConstructor.extend({
 ```
 同理，`VueComponentChild1Constructor是VueComponentConstructor的子类，所以VueComponentChild1Constructor就继承了VueComponentConstructor的 options`。
 
-![alt text](6.png)
+![alt text](image/7.png)
 
 > 需要注意的时，此时继承的属性是从 VueComponent中继承过来的，跟 Vue.options实际上没有关系了。
 
@@ -412,9 +417,8 @@ const VueComponentChild1Constructor = VueComponentConstructor.extend({
 
 在实例上注入选项时需要合并对应构造函数上的选项和实例初始化时传入的选项。
 
-但是在此之前，我们应该需要了解一下`resolveConstructorOptions`函数。
+resolveConstructorOptions 函数用于获取构造函数的选项。
 
-这个函数用于获取实例上对应构造函数的选项.
 
 ```js
 export function resolveConstructorOptions(Ctor){
@@ -447,7 +451,7 @@ export function resolveConstructorOptions(Ctor){
 
 1. `Vue构造函数的选项是在初始化时注入的`。
 
-2. `VueComponent及其扩展子类的选项则是在extend方法中进行注入的`。
+2. `VueComponent构造函数及其扩展子类的选项则是在extend方法中进行注入的`。
 
 那直接获取构造函数的选项不就行了，为什么还有这么一大段逻辑呢？
 
@@ -482,7 +486,7 @@ Vue.extend = function(){
 
 ## 5.2 判断父类构造函数上的 options 是否变化
 
-当父类构造函数的选项变化了，需要更新 VueComponent.options。
+当父类构造函数的选项变化了，比如使用 Vue.mixin注入了选项，需要更新 VueComponent.options。 
 
 那么如何检测出父类构造函数的选项变化了呢？
 
@@ -494,7 +498,7 @@ if (superOptions !== cachedSuperOptions) {
 }
 ```
 
-如果 superOptions 不等于 cachedSuperOptions，即表示父类构造函数发生了变化。
+上面代码中如果 superOptions 不等于 cachedSuperOptions，即表示父类构造函数发生了变化。
 
 所以我们需要搞明白这 2 个值分别表示什么？
 
@@ -521,7 +525,7 @@ Vue.extend = function(){
 
 [github issue #4976](https://github.com/vuejs/vue/issues/4976)
 
-![alt text](image-2.png)
+![alt text](image/8.png)
 
 这个bug的大概意思就是说：`先生成VueComponent构造函数，然后再在构造函数上的 options 添加属性，在resolveComponentOptions函数执行后，后添加的属性消失了`。
 
@@ -589,7 +593,7 @@ Vue.mixin = function (mixin: Object) {
 
 但是 Vue.mixin 仅仅是更改了 Vue.options。
 
-应该不会将构造函数自身添加的属性清除。
+应该不会将VueComponent构造函数自身添加的属性清除。
 
 所以应该是 Vue内部对其做了一些特殊处理。
 
@@ -619,7 +623,7 @@ export function resolveConstructorOptions (Ctor) {
 ```
 
 1. 获取了父构造函数的当前的 options：` const superOptions = Ctor.super.options`。
-2. 获取了父构造函数extend是生成时的options：`const cachedSuperOptions = Ctor.superOptions`。
+2. 获取了父构造函数extend生成时的options：`const cachedSuperOptions = Ctor.superOptions`。
 3. 获取了子构造函数 extend时传入的选项`extendOptions`。
 4. 因为执行了mixin，导致父构造函数中的 options发生了变化，即`superOptions !== cachedSuperOptions`，然后继续执行内部的逻辑。
 ```js
@@ -630,7 +634,7 @@ options = Ctor.options = mergeOptions(superOptions, extendOptions)
 
 所以后添加的`computed`、`beforeCreate`就消失了，因为指向了不同的内存空间。
 
-![alt text](7.png)
+![alt text](image/9.png)
 
 ### 5.2.4 总结
 
@@ -682,19 +686,87 @@ if (modifiedOptions) {
 }
 ```
 
+4.合并 extendOptions以及 superOptions
+
+extendOptions是最新的子类构造函数 options。
+
+superOptions是最新的父类构造函数 options。
+
+将两者合并就不会有问题了。
+
+```js
+options = Ctor.options = mergeOptions(superOptions, Ctor.extendOptions)
+```
+
 ## 5.4 总结
 
 这个函数可以获取到构造函数上最新的options。
 
 同时可以更新子类构造函数和父类构造函数上的`superOptions、extendOptions以及 options`。
 
-# 六、合并策略
+# 六、mergeOptions的合并场景
 
-在构造函数实例化的时候，会将构造函数上的选项和用户传入的选项进行合并。
+mergeOptions在实例化时用于合并构造函数的 options和传入的 options。
 
-mergeOptions函数用于合并2 个 options选项，并返回一个新的 options。
+mergeOptions 是实现继承和实例化的核心函数。 
 
-这个函数是继承和实例化的核心函数。
+```js
+function mergeOptions(parent,child,vm){
+  // parent代表合并父类
+  // child代表合并子类
+  // vm代表当前的 vm实例
+  // 如果vm实例存在，则表示这是在实例化时调用的
+}
+```
+
+不仅仅用于生成实例的 $options 属性。
+
+也可以用于子类构造函数和父类构造函数的选项合并。
+
+## 6.1 Vue.extend
+
+```js
+Vue.extend = function(extendOptions){
+  // 省略部分代码
+  Sub.options = mergeOptions(Super.options,extendOptions)
+}
+```
+前面我们已经多次提及这个方法了。
+
+这里的 mergeOptions 用于合并父类构造函数选项和生成子类构造函数传入的选项，生成子类构造函数的选项。
+
+在这里：`父类构造函数的选项相当于父类，而传入的选项相当于子类`。不传入vm实例。
+
+## 6.2 Vue.mixin
+
+```js
+Vue.mixin = function (mixin: Object) {
+  this.options = mergeOptions(this.options, mixin)
+  return this
+}
+```
+
+前面我们也多次提到这个方法，这个方法主要是用于合并构造函数的options，和传入mixin选项，生成全新的构造函数的 options。
+
+在这里：`构造函数的选项相当于父类，而传入的 mixin选项相当于子类`。不传入vm实例。
+ 
+## 6.3 vm.$options
+
+```js
+vm.$options = mergeOptions(
+  resolveConstructorOptions(vm.constructor as any),
+  options || {},
+  vm
+)
+```
+
+该方法用于在实例化的时候生成实例的$options选项属性。这个方法主要用于合并实例对应的构造函数的选项和传入的选项，生成一个完整地实例选项。
+
+在这里：`构造函数的选项相当于父类，而实例化时传入的 mixin选项相当于子类`。`此时传入vm实例`。
+
+# 七、合并策略
+
+在构造函数实例化的时候，会将构造函数上的选项和用户传入的选项进行合并，将最终的合并选项注入到实例中。
 
 ```js
 vm.$options = mergeOptions(
@@ -703,19 +775,15 @@ vm.$options = mergeOptions(
     vm
 )
 ```
-大家可以思考一下合并2个对象需要注意些什么呢？
+![alt text](image/11.png)
 
-假设构造函数的options和传入的options中都存在data，这个时候合并的是`1.直接覆盖？2.如果覆盖的话是使用构造函数的data还是传入的data? 3.还是将data中的内容再进行合并呢？`
-
-![alt text](8.png)
-
-实际上选项中的每一项都存在自己的合并逻辑，这就是合并策略。
+mergeOptions函数用于合并2个选项，并返回一个新的选项。
 
 ```js
 function mergeOptions(parent,child){
     // 省略部分代码
     let key
-    const options: ComponentOptions = {};
+    const options = {};
     for(key in parent){
         mergeField(key)
     }
@@ -730,22 +798,102 @@ function mergeOptions(parent,child){
     }
     return options;
 }
+``` 
+大家可以先思考一下合并2个对象需要注意些什么呢？
+
+假设构造函数的options和传入的options中都存在data，这个时候合并的是：
+
+1. `直接覆盖？`
+2. `如果覆盖的话是使用构造函数的data还是传入的data?` 
+3. `还是将data中的内容再进行合并呢？`
+
+![alt text](image/10.png)
+
+实际上不同的选项中的都存在自己的合并逻辑。 
+
+比如data选项和生命周期钩子选项合并策略肯定是不同的。
+
+## 7.1 自定义策略
+
+在Vue中，可以自己定义不同的合并策略。
+
+```js
+// 可以配置合并策略
+Vue.config.optionMergeStrategies = {
+  customArray:[]
+};
 ```
+配置完以后，就可以在`optionMergeStrategies`获取用户配置的策略。
 
-## 6.1 默认的合并策略
+```js
+// 源码中定义策略变量首先获取optionMergeStrategies 如果没有配置 optionMergeStrategies 默认是一个空对象
+const strats = config.optionMergeStrategies
+``` 
+然后再在 strats这个对象上添加属性，定义不同的策略。
 
-由于可以选项高度可自定义，所以 Vue中内置了一套默认的合并策略，主要应对没有设置对应策略的合并情况。
+```js
+// data的合并策略
+strats.data = (parentVal,ChildVal,vm)=>{
+  // xxx
+}
+// props的合并策略
+strats.props = (parentVal,ChildVal,vm)=>{
+  // xxx
+}
+// computed的合并策略
+strats.computed = (parentVal,ChildVal,vm)=>{
+  // xxx
+}
+``` 
+> 由于strats是一个对象，所以你如果定义了和内部定义的策略相同的选项，会被覆盖掉。也就意味着你无法重新定义 data、computed、props等内部策略 
+
+但是你可以自定义自己的选项。
+
+```js
+import Vue from "vue/dist/vue.esm.browser" 
+import Test from "./Test.vue"
+ 
+Vue.mixin({
+    customArray:[1,3,5,8,9]
+})
+ 
+const vm = new Vue({
+    render: h=>h(Test),
+    customArray: [1,4,5,7]
+}).$mount("#app")  
+ 
+console.log(vm);
+```
+比如你想要实现你自定义的 customArray选项 数组内容合并并且去重，可以使用使用`optionMergeStrategies`:
+
+```js
+// parentVal代表构造函数上的选项值， childVal代表传入的选项值
+Vue.config.optionMergeStrategies.customArray = (parentVal,childVal)=>{ 
+    // 其他Vue组件没有定义不进行处理
+    if(!childVal) return [];
+    return Array.from(new Set([...parentVal,...childVal]))
+}
+```
+我们打印一下这个实例，可以发现已经成功了。
+
+![alt text](image/12.png)
+
+## 7.2 默认的合并策略
+
+由于可以选项高度可自定义，所以 Vue中内置了一套默认的合并策略。
+
+主要应对没有设置对应策略的合并情况。
 
 ```js
 const defaultStrat = function (parentVal, childVal) {
   return childVal === undefined ? parentVal : childVal
 }
 ```
-可以看出来默认的合并策略是传入的 options直接对构造函数的 options进行强制覆盖（如果存在的话）。
+可以看出来默认的合并策略是传入的options直接对构造函数的options进行强制覆盖（如果存在的话）。
 
-## 6.2 el、propsData的合并策略
+## 7.3 el、propsData的合并策略
 
-可以看出来 el、propsData的合并策略和默认策略一样，只是多了一个开发环境的报错提示
+可以看出来 el、propsData的合并策略和默认策略一样，只是多了一个开发环境的报错提示。 
 
 ```js
 if (__DEV__) {
@@ -765,8 +913,28 @@ if (__DEV__) {
   }
 }
 ```
+那么这个报错是什么意思呢？
 
-## 6.3 data的合并策略
+> 策略函数的的第三个参数vm代表 vue实例。
+>
+> 而这个vm同时也是mergeOptions的第三个参数。
+>
+> 而 mergeOptions作为一个通用函数，不仅只是在实例初始化的时候被调用，同时也在Vue.extend、Vue.mixin等多个方法中被使用，这个时候还没有生成 vm实例，所以 vm为空。而 el属性、propsData属性是属于跟实例相关的属性，所以如果在Vue.mixin等方法中注入 el属性，则会报错。
+
+综上所述，这行报错的意思就是禁止在除了实例化之外的地方注入 el选项。
+
+比如调用：
+
+```js
+Vue.mixin({
+  el:"#select"
+})
+```
+控制台就会报错：
+
+![alt text](image/13.png)
+
+## 7.4 data的合并策略
 
 data选项在 Vue中无疑是使用最频繁的选项之一。
 
@@ -774,15 +942,48 @@ data选项在 Vue中无疑是使用最频繁的选项之一。
 
 ```js
 strats.data = function (
-  parentVal,
-  childVal,
-  vm
-){
+  parentVal: any,
+  childVal: any,
+  vm?: Component
+): Function | null {
+  if (!vm) {
+    if (childVal && typeof childVal !== 'function') {
+      __DEV__ &&
+        warn(
+          'The "data" option should be a function ' +
+            'that returns a per-instance value in component ' +
+            'definitions.',
+          vm
+        )
+
+      return parentVal
+    }
+    return mergeDataOrFn(parentVal, childVal)
+  }
+
   return mergeDataOrFn(parentVal, childVal, vm)
 }
 ```
 
-### 6.3.1 mergeDataOrFn 
+### 7.4.1 在定义时报错
+
+我们知道通常在组件中，建议将 data定义成函数，因为如果将 data定义成普通对象，在该组件被引入到多处时，由于 extend函数内部会缓存这个构造函数，所以 data中的数据可能会被多个组件共享，导致 bug的产生。
+
+childVal在这里代表传入的选项，即在组件中定义的选项。
+
+所以会提示你需要将 data定义成函数，并且依旧调用 mergeDataOrFn。
+
+在执行构造函数时创建子类构造函数时，虽然已经有了 vm了，但是并没有传入 mergeOptions。
+
+```js
+Vue.extend = function(){
+  Sub.options = mergeOptions(Super.options, extendOptions);
+}
+```
+
+所以这个报错是在创建子类构造函数时进行提示的。
+
+### 7.4.2 mergeDataOrFn 
 
 ```js
 export function mergeDataOrFn(
@@ -810,21 +1011,55 @@ export function mergeDataOrFn(
 
 `当这个合并函数执行的时候将获取构造函数的上的data和传入的data`
 
-1. 当传入的选项中存在 data，则调用 mergeData合并 2 个 data。
+1. 当传入的选项中存在 data，则调用mergeData合并 2 个data并返回。
 2. 当传入的选项中不存在 data时，则直接返回构造函数上的 data。
 
-### 6.3.2 mergeData
+### 7.4.3 mergeData
 
-当构造函数的选项和传入的选项都存在 data时，需要调用 mergeData对 2 个选项进行合并。
+当构造函数的选项和传入的选项都存在 data时，需要调用 mergeData对 2 个选项进行合并。 
 
 ```js
+function mergeData(
+  to,
+  from,
+  recursive = true
+){
+  if (!from) return to
+  let key, toVal, fromVal
 
+  const keys = hasSymbol
+    ? Reflect.ownKeys(from)
+    : Object.keys(from)
+
+  for (let i = 0; i < keys.length; i++) {
+    key = keys[i]
+    // in case the object is already observed...
+    if (key === '__ob__') continue
+    toVal = to[key]
+    fromVal = from[key]
+    if (!recursive || !hasOwn(to, key)) {
+      set(to, key, fromVal)
+    } else if (
+      toVal !== fromVal &&
+      isPlainObject(toVal) &&
+      isPlainObject(fromVal)
+    ) {
+      mergeData(toVal, fromVal)
+    }
+  }
+  return to
+}
 ```
 
-## 6.4 生命周期的合并策略
+这个函数的主要作用是合并两个对象的属性，可以用于初始化组件的数据对象，或者在组件的 created 钩子中合并父组件和子组件的数据。通过 recursive 参数，它可以灵活地进行浅合并或深度合并。
+
+由于其中涉及到响应式数据的内容，所以不在这里深入讨论。
+
+后面会单独出响应式数据的内容。
+
+## 7.5 生命周期的合并策略
 
 ```js
-
 export const LIFECYCLE_HOOKS = [
   'beforeCreate',
   'created',
@@ -840,12 +1075,13 @@ export const LIFECYCLE_HOOKS = [
   'serverPrefetch',
   'renderTracked',
   'renderTriggered'
-] as const
+]
 
 LIFECYCLE_HOOKS.forEach(hook => {
   strats[hook] = mergeLifecycleHook
 })
 
+// 生命周期的合并策略
 export function mergeLifecycleHook(
   parentVal,
   childVal
@@ -869,19 +1105,19 @@ function dedupeHooks(hooks) {
   return res
 }
 ```
-mergeLifecycleHook函数的三元运算符还是比较复杂的，我们来解析一下。
 
-* 如果 childVal存在，检查 parentVal是否存在
-* 如果 parentVal存在，使用 concat方法将 parentVal和 childVal合并成一个新数组
-* 如果 parentVal不存在，检查 childVal是否为数组。
-    1. 如果是数组，直接返回 childVal
-    2. 如果不是数组，将 childVal包装成一个数组
+上面这个三元表达式还是比较复杂的。 
 
-dedupeHooks函数就是对合并的选项进行去重操作。
+1. 如果子类和父类都拥有相同的钩子选项，则将子类选项和父类选项合并。
+2. 如果父类不存在钩子选项，子类存在时，则以数组形式返回子类钩子选项。
+3. 当子类不存在钩子选项时，则以父类选项返回。
+4. 子父合并时，是将子类选项放在数组的末尾，这样在执行钩子时，永远是父类选项优先于子类选项执行。
 
-> 综上所述，生命周期的合并策略就是合并父构造器和传入的选项，将其转化为数组。
+简单总结一下：`对于生命周期钩子选项，子类和父类相同的选项将合并成数组，这样在执行子类钩子函数时，父类钩子选项也会执行，并且父会优先于子执行。`
 
-## 6.5 组件、指令、过滤器的合并策略
+![alt text](image/14.png)
+
+## 7.6 组件、指令、过滤器的合并策略
 
 ```js
 export const ASSET_TYPES = ['component', 'directive', 'filter']
@@ -906,5 +1142,173 @@ function mergeAssets(
 ```
 很明显 组件、指令、过滤器的合并策略就是直接对构造函数的选项进行覆盖。
 
+> Object.create()方法创建一个新对象，使用创建的对象来提供新创建的对象的__proto__。
+
+这意味着这个合并策略让内置的一些资源选项变成了原型链的形式。
+
+这样子类必须通过原型链才能查找并使用内置的组件和内置指令。
+
+## 7.7 watch的合并策略
+
+在使用 Vue 进行开发时，我们经常需要对数据变化做出响应，尤其是当涉及到需要执行异步操作或计算成本较高的任务时，watch 选项就显得尤为高效。
+
+关于 watch 选项的合并策略，它与生命周期钩子的合并有相似之处：如果父组件和子组件有相同的观察字段，它们的 watch 选项将被合并为一个数组。
+
+当监测到字段变化时，父类和子类的监听代码将被同时触发。
+
+与生命周期钩子的处理方式不同，watch 选项在合并后的数组中可以呈现多种形式：它们可以是包含选项的对象，也可以是回调函数，或者是方法名的字符串。
+
+这种灵活性使得 watch 选项能够适应更多的使用场景，无论是简单的数据变化监听还是复杂的异步操作处理。
+
+通过这种方式，Vue 允许开发者在组件和混入中灵活地定义和合并 watch 选项，从而实现精细化的数据监控和管理。
+
+```js
+strats.watch = function (parentVal,childVal,vm,key) {
+    //火狐浏览器在Object的原型上拥有watch方法，这里对这一现象做了兼容
+    // var nativeWatch = ({}).watch;
+    if (parentVal === nativeWatch) { parentVal = undefined; }
+    if (childVal === nativeWatch) { childVal = undefined; }
+    // 没有子，则默认用父选项
+    if (!childVal) { return Object.create(parentVal || null) }
+    {
+      // 保证watch选项是一个对象
+      assertObjectType(key, childVal, vm);
+    }
+    // 没有父则直接用子选项
+    if (!parentVal) { return childVal }
+    var ret = {};
+    extend(ret, parentVal);
+    for (var key$1 in childVal) {
+      var parent = ret[key$1];
+      var child = childVal[key$1];
+      // 父的选项先转换成数组
+      if (parent && !Array.isArray(parent)) {
+        parent = [parent];
+      }
+      ret[key$1] = parent
+        ? parent.concat(child)
+        : Array.isArray(child) ? child : [child];
+    }
+    return ret
+};
+```
+
+下面结合具体的例子看合并结果：
+
+```js
+var Parent = Vue.extend({
+  watch: {
+    'test': function() {
+      console.log('parent change')
+    }
+  }
+})
+var Child = Parent.extend({
+  watch: {
+    'test': {
+      handler: function() {
+        console.log('child change')
+      }
+    }
+  },
+  data() {
+    return {
+      test: 1
+    }
+  }
+})
+var vm = new Child().$mount('#app');
+vm.test = 2;
+// 输出结果
+parent change
+child change
+```
 
 
+简而言之:`Vue 在处理 watch 选项的合并时，会将子组件与父组件的 watch 选项合并成一个数组。这个数组中的成员可以是回调函数、包含配置的对象，或者是指向函数的方法名。这样的设计提供了灵活的选项，以适应不同的数据监控需求。`
+
+## 7.8 props methods inject computed合并
+
+在 Vue 的源码设计中，props、methods、inject 和 computed 这些选项被归为一类，并且它们遵循相同的合并策略。
+
+```js
+strats.props =
+    strats.methods =
+    strats.inject =
+    strats.computed =
+    function (
+        parentVal,
+        childVal,
+        vm,
+        key
+) {
+    if (childVal && __DEV__) {
+        assertObjectType(key, childVal, vm)
+    }
+    if (!parentVal) return childVal
+    const ret = Object.create(null)
+    extend(ret, parentVal)
+    if (childVal) extend(ret, childVal)
+    return ret
+}
+```
+
+简而言之。
+
+1. 父类没有相应的选项，则直接使用子类的选项
+2. 当父组件和子组件都提供了这些选项时，子组件的选项会覆盖父组件的选项。这种策略确保了组件能够继承和扩展行为，同时允许子组件通过提供自己的选项来覆盖继承自父组件或混入的选项。
+
+举个例子：
+
+```js
+var Parent = Vue.extend({
+  methods:{
+    handleClick:function(){
+      console.log("父类点击事件")
+    },
+    getParentName:function(){
+      console.log("获取父类名称")
+    }
+  }
+})
+var Child = Parent.extend({
+  methods:{
+    handleClick:function(){
+      console.log("子类点击事件")
+    },
+    getChildName:function(){
+      console.log("获取父类名称")
+    }
+  }
+})
+var vm = new Child().$mount('#app');
+console.log(vm.$options.methods);
+// 合并子类和父类，遇到相同的属性，使用子类覆盖父类
+{
+  getChildName:f(),
+  getParentName:f(),
+  handleClick:f(),
+}
+```
+
+## 7.9 provide合并
+
+确保了子组件的 provide 选项可以覆盖父组件的同名选项，同时保留了父组件的其他选项。这种设计允许组件在继承和扩展 provide 数据时有更多的灵活性。通过这种方式，Vue 允许开发者在组件树中有效地传递数据，而无需通过每个层级的组件显式地传递 props。
+
+```js
+strats.provide = function (parentVal, childVal) {
+  if (!parentVal) return childVal
+  return function () {
+    const ret = Object.create(null)
+    mergeData(ret, isFunction(parentVal) ? parentVal.call(this) : parentVal)
+    if (childVal) {
+      mergeData(
+        ret,
+        isFunction(childVal) ? childVal.call(this) : childVal,
+        false // non-recursive
+      )
+    }
+    return ret
+  }
+}
+```

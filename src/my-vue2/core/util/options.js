@@ -3,6 +3,17 @@ import { isBuiltInTag, isFunction, isArray, camelize, isPlainObject, toRawType, 
 import { warn } from './debug'
 import config from "../config"
 
+function assertObjectType(name, value, vm) {
+    if (!isPlainObject(value)) {
+      warn(
+        `Invalid value for option "${name}": expected an Object, ` +
+          `but got ${toRawType(value)}.`,
+        vm
+      )
+    }
+}
+  
+
 // 默认的策略
 const defaultStrat = function (parentVal, childVal) {
     return childVal === undefined ? parentVal : childVal
@@ -21,7 +32,7 @@ if (__DEV__) {
     ) {
         return defaultStrat(parent, child)
     }
-} 
+}
 
 /**
  * Helper that recursively merges two data objects together.
@@ -30,33 +41,33 @@ function mergeData(
     to,
     from,
     recursive = true
-){
+) {
     if (!from) return to
     let key, toVal, fromVal
-  
+
     const keys = hasSymbol
-      ? Reflect.ownKeys(from)
-      : Object.keys(from)
-  
+        ? Reflect.ownKeys(from)
+        : Object.keys(from)
+
     for (let i = 0; i < keys.length; i++) {
-      key = keys[i]
-      // in case the object is already observed...
-      if (key === '__ob__') continue
-      toVal = to[key]
-      fromVal = from[key]
-      if (!recursive || !hasOwn(to, key)) {
-        set(to, key, fromVal)
-      } else if (
-        toVal !== fromVal &&
-        isPlainObject(toVal) &&
-        isPlainObject(fromVal)
-      ) {
-        mergeData(toVal, fromVal)
-      }
+        key = keys[i]
+        // in case the object is already observed...
+        if (key === '__ob__') continue
+        toVal = to[key]
+        fromVal = from[key]
+        if (!recursive || !hasOwn(to, key)) {
+            set(to, key, fromVal)
+        } else if (
+            toVal !== fromVal &&
+            isPlainObject(toVal) &&
+            isPlainObject(fromVal)
+        ) {
+            mergeData(toVal, fromVal)
+        }
     }
     return to
 }
-  
+
 
 export function mergeDataOrFn(
     parentVal,
@@ -84,32 +95,46 @@ strats.data = function (
     childVal,
     vm
 ) {
+    if (!vm) {
+        if (childVal && typeof childVal !== 'function') {
+            __DEV__ &&
+                warn(
+                    'The "data" option should be a function ' +
+                    'that returns a per-instance value in component ' +
+                    'definitions.',
+                    vm
+                )
+
+            return parentVal
+        }
+        return mergeDataOrFn(parentVal, childVal)
+    }
     return mergeDataOrFn(parentVal, childVal, vm)
 }
 
 LIFECYCLE_HOOKS.forEach(hook => {
     strats[hook] = mergeLifecycleHook
 })
-  
+
 export function mergeLifecycleHook(
     parentVal,
     childVal
-){
+) {
     const res = childVal
-      ? parentVal
-        ? parentVal.concat(childVal)
-        : isArray(childVal)
-        ? childVal
-        : [childVal]
-      : parentVal
+        ? parentVal
+            ? parentVal.concat(childVal)
+            : isArray(childVal)
+                ? childVal
+                : [childVal]
+        : parentVal
     return res ? dedupeHooks(res) : res
 }
 function dedupeHooks(hooks) {
     const res = []
     for (let i = 0; i < hooks.length; i++) {
-      if (res.indexOf(hooks[i]) === -1) {
-        res.push(hooks[i])
-      }
+        if (res.indexOf(hooks[i]) === -1) {
+            res.push(hooks[i])
+        }
     }
     return res
 }
@@ -117,7 +142,7 @@ function dedupeHooks(hooks) {
 ASSET_TYPES.forEach(function (type) {
     strats[type + 's'] = mergeAssets
 })
-  
+
 function mergeAssets(
     parentVal,
     childVal,
@@ -126,9 +151,9 @@ function mergeAssets(
 ) {
     const res = Object.create(parentVal || null)
     if (childVal) {
-      return extend(res, childVal)
+        return extend(res, childVal)
     } else {
-      return res
+        return res
     }
 }
 
@@ -150,6 +175,75 @@ export function mergeOptions(parent, child) {
         options[key] = strat(parent[key], child[key], vm, key)
     }
     return options;
+}
+
+strats.watch = function (
+    parentVal,
+    childVal,
+    vm,
+    key
+) {
+    // work around Firefox's Object.prototype.watch...
+    //@ts-expect-error work around
+    if (parentVal === nativeWatch) parentVal = undefined
+    //@ts-expect-error work around
+    if (childVal === nativeWatch) childVal = undefined
+    /* istanbul ignore if */
+    if (!childVal) return Object.create(parentVal || null)
+    if (__DEV__) {
+        assertObjectType(key, childVal, vm)
+    }
+    if (!parentVal) return childVal
+    const ret = {}
+    extend(ret, parentVal)
+    for (const key in childVal) {
+        let parent = ret[key]
+        const child = childVal[key]
+        if (parent && !isArray(parent)) {
+            parent = [parent]
+        }
+        ret[key] = parent ? parent.concat(child) : isArray(child) ? child : [child]
+    }
+    return ret
+}
+
+/**
+ * Other object hashes.
+ */
+strats.props =
+    strats.methods =
+    strats.inject =
+    strats.computed =
+    function (
+        parentVal,
+        childVal,
+        vm,
+        key
+) {
+    if (childVal && __DEV__) {
+        assertObjectType(key, childVal, vm)
+    }
+    if (!parentVal) return childVal
+    const ret = Object.create(null)
+    extend(ret, parentVal)
+    if (childVal) extend(ret, childVal)
+    return ret
+}
+
+strats.provide = function (parentVal, childVal) {
+    if (!parentVal) return childVal
+    return function () {
+      const ret = Object.create(null)
+      mergeData(ret, isFunction(parentVal) ? parentVal.call(this) : parentVal)
+      if (childVal) {
+        mergeData(
+          ret,
+          isFunction(childVal) ? childVal.call(this) : childVal,
+          false // non-recursive
+        )
+      }
+      return ret
+    }
 }
 
 

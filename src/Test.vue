@@ -1,12 +1,12 @@
 <template>
-    <div>Test1</div>
+    <div>{{ name }}</div>
 </template>
  
 
 <script>
 export default {
-    compnents:{
-        
+    data:{
+        name:"Test1"
     }
 }
 </script>
